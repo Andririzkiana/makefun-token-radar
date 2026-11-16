@@ -1,5 +1,11 @@
 # Token Radar
 
+[![make.fun — Build the best token launch radar](https://make.fun/badge/token-radar-01.svg)](https://make.fun/bounty/token-radar-01)
+![Token Radar rank](https://make.fun/badge/token-radar-01/Andririzkiana/makefun-token-radar/rank.svg)
+![Token Radar reward](https://make.fun/badge/token-radar-01/Andririzkiana/makefun-token-radar/reward.svg)
+
+Entry for the [Build the best token launch radar](https://make.fun/bounty/token-radar-01) bounty on make.fun.
+
 A ranking model and "night radar" dashboard for the make.fun
 token-radar-01 bounty ("Build the best token launch radar").
 
