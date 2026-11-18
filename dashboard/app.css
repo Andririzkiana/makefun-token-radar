@@ -179,6 +179,31 @@ tr[data-top="1"] .rank, tr[data-top="2"] .rank, tr[data-top="3"] .rank { color: 
 
 .foot { margin-top: var(--step-6); padding-top: var(--step-4); border-top: 1px solid var(--border); color: var(--faint); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: var(--step-2) var(--step-4); justify-content: space-between; }
 
+.verdict {
+  display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; white-space: nowrap;
+}
+.verdict-farm { background: var(--accent-deep); color: var(--accent); }
+.verdict-thin { background: var(--gold-deep); color: var(--gold); }
+.verdict-skip { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.hero-tags { display: inline-flex; align-items: center; gap: var(--step-2); }
+.strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--step-2) var(--step-5);
+  padding: var(--step-3) var(--step-4); margin-bottom: var(--step-4);
+  background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: var(--radius-panel); color: var(--muted); font-size: 13px;
+}
+.strip b { color: var(--ink); }
+.strip .verdict-farm-t { color: var(--accent); }
+.strip .verdict-thin-t { color: var(--gold); }
+.sel-table { font-size: 12.5px; }
+.sel-table th, .sel-table td { padding: var(--step-2) var(--step-3); }
+.sel-table thead th { position: static; }
+.costing { display: grid; gap: var(--step-2); }
+.crow { display: flex; align-items: baseline; gap: var(--step-3); font-size: 13.5px; }
+.crow > span:first-child { color: var(--muted); min-width: 132px; flex: none; }
+.crow .sub { margin-left: auto; text-align: right; }
+
 .tag {
   display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px;
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; white-space: nowrap;
