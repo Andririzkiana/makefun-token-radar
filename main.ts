@@ -96,7 +96,13 @@ for (const name of shots) {
 // The dossier is written last: the scorer rebuilds it from this /output and compares bytes.
 writeFileSync(join(out, 'dossier.json'), buildDossier(out, { text_max_bytes: TEXT_MAX_BYTES, screenshots: SCREENSHOT_CAPS, dashboard: { max_files: 400, max_bytes: 4_194_304 } }));
 
+const fit = radar.fit;
+const verdicts = { farm: 0, thin: 0, skip: 0 };
+for (const row of board) verdicts[row.plan.verdict] += 1;
 process.stdout.write(
   `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.early_size} early, ${radar.live_size} live set aside)\n` +
+    `token radar: ${radar.model_version} fitted on ${fit.peers_used} clean peers (${fit.broken_prints} broken prints excluded of ${fit.peers_seen} recording a cap): size exponent ${fit.size_exponent}, shrink k ${fit.shrink_k}, growth weight ${fit.growth_weight}, age weight ${fit.age_weight}\n` +
+    `token radar: validation leave-one-out log-RMSE ${fit.validation.loo.log_rmse} (median APE ${Math.round(fit.validation.loo.median_ape * 100)}%, within-2x ${Math.round(fit.validation.loo.within_2x * 100)}%, n ${fit.validation.loo.n}); walk-forward log-RMSE ${fit.validation.wf.log_rmse} (median APE ${Math.round(fit.validation.wf.median_ape * 100)}%, n ${fit.validation.wf.n})\n` +
+    `token radar: plan verdicts ${verdicts.farm} farm, ${verdicts.thin} thin, ${verdicts.skip} skip\n` +
     `token radar: wrote ${join(out, 'board.json')}, ${join(out, 'data.js')}, ${join(out, 'dashboard')} (${dashboardFiles.length} files), ${join(out, 'screenshots')} (${shots.length} images) and ${join(out, 'dossier.json')}\n`,
 );
