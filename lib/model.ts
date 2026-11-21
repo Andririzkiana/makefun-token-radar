@@ -101,7 +101,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it and the rules quote it. */
-export const MODEL_VERSION = 'radar-4';
+export const MODEL_VERSION = 'radar-5';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -163,6 +163,8 @@ export interface FarmPlan {
   expected_value_usd: number;
   net_usd: number;
   break_even_usd: number | null;
+  break_even_days: number | null;
+  break_even_date: string | null;
   verdict: 'farm' | 'thin' | 'skip';
 }
 
@@ -236,6 +238,19 @@ export interface LiveRow {
   change_7d: number | null;
 }
 
+/** One line of the coverage ledger: where one snapshot protocol landed, and why. */
+export interface CoverageEntry {
+  slug: string;
+  name: string;
+  category: string | null;
+  tvl_usd: number;
+  mcap_usd: number | null;
+  status: 'ranked' | 'traded' | 'aside';
+  rank: number;
+  peer: boolean;
+  reason: string;
+}
+
 /** Everything the dashboard needs: the board, the live set, and the fitted model it runs. */
 export interface RadarData {
   as_of: string;
@@ -250,6 +265,8 @@ export interface RadarData {
   live_size: number;
   rows: RadarRow[];
   live: LiveRow[];
+  coverage: CoverageEntry[];
+  coverage_counts: { total: number; ranked: number; traded: number; aside: number };
 }
 
 /** Why the snapshot is not one this model can score. */
@@ -853,6 +870,10 @@ export function planFor(p: SnapshotProtocol, age: number | null, implied: number
   const cost = gas + bridge + swap + opportunity;
   const value = p.tvl_usd > 0 ? (implied * model.allocation * (capital * hold)) / (model.farm_tvl_share * p.tvl_usd * 365) : 0;
   const verdict: FarmPlan['verdict'] = value >= 2 * cost ? 'farm' : value >= cost ? 'thin' : 'skip';
+  // The timeline's middle marker: expected value accrues in proportion to the days farmed, so the
+  // day it covers the all-in cost is the hold scaled by cost over value. Past the hold it still
+  // prints — a skip plan's honest timeline is enter, exit, and a break-even that never lands.
+  const breakEvenDays = value > 0 ? Math.ceil((hold * cost) / value) : null;
   return {
     capital_usd: capital,
     hold_days: hold,
@@ -867,6 +888,8 @@ export function planFor(p: SnapshotProtocol, age: number | null, implied: number
     expected_value_usd: round2(value),
     net_usd: round2(value - cost),
     break_even_usd: value > 0 ? round2((implied * cost) / value) : null,
+    break_even_days: breakEvenDays,
+    break_even_date: breakEvenDays === null ? null : addDays(asOf, breakEvenDays),
     verdict,
   };
 }
@@ -1093,6 +1116,41 @@ export function liveRows(snapshot: Snapshot): LiveRow[] {
     }));
 }
 
+/**
+ * The coverage ledger: every protocol in the snapshot, with the disposition the radar gave it and
+ * the reason, in the order the board reads — ranked rows first by rank, the rest by TVL. Nothing
+ * is silently dropped: a protocol is ranked, or its token already trades (the fitted curve learns
+ * from the clean ones — they are the anchors, not candidates), or it records no token of its own
+ * because it is a product of one that trades, and the reason says which rule caught it, in the
+ * same order isRankable applies them.
+ */
+export function coverageLedger(snapshot: Snapshot, ranks: Map<string, number>, peerSlugs: Set<string>): CoverageEntry[] {
+  const entries = snapshot.protocols.map((p): CoverageEntry => {
+    const base = { slug: p.slug, name: p.name, category: p.category, tvl_usd: p.tvl_usd, mcap_usd: p.mcap_usd };
+    const rank = ranks.get(p.slug) ?? 0;
+    if (rank > 0) {
+      return { ...base, status: 'ranked', rank, peer: false, reason: 'Records no token: priced by the fitted curve and ranked on the board.' };
+    }
+    if (!isPreToken(p)) {
+      let reason: string;
+      if (peerSlugs.has(p.slug)) reason = 'Token trades — one of the launches the curve is fitted on: an anchor, not a candidate.';
+      else if (p.mcap_usd !== null && p.mcap_usd <= 0) reason = 'Records a market cap of zero or less — a broken print, kept out of the fit.';
+      else if (p.mcap_usd === null) reason = 'Records a token but no market cap: the market prices it, not the model.';
+      else if (p.tvl_usd <= 0) reason = 'Token trades and records no TVL, so it cannot anchor the curve.';
+      else reason = 'Token already trades: the market prices it, not the model.';
+      return { ...base, status: 'traded', rank: 0, peer: peerSlugs.has(p.slug), reason };
+    }
+    let reason: string;
+    if (p.category !== null && PRODUCT_CATEGORIES.has(p.category)) reason = `Records no token of its own: ${p.category} is a product of a token that already trades.`;
+    else if (VERSIONED.test(p.name)) reason = 'Records no token of its own: the name ends in a version marker — a later release of another protocol.';
+    else if (PRODUCT_WORD.test(p.name)) reason = 'Records no token of its own: the name says wrapped or staked — a product of a token that already trades.';
+    else reason = 'Records no token of its own: the name begins with an exchange — that exchange\u2019s own product.';
+    return { ...base, status: 'aside', rank: 0, peer: false, reason };
+  });
+  entries.sort((a, b) => (a.rank || Number.MAX_SAFE_INTEGER) - (b.rank || Number.MAX_SAFE_INTEGER) || b.tvl_usd - a.tvl_usd || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
+  return entries;
+}
+
 /** The snapshot's protocol by slug. */
 function bySlug(protocols: SnapshotProtocol[]): Map<string, SnapshotProtocol> {
   return new Map(protocols.map((p) => [p.slug, p]));
@@ -1200,6 +1258,9 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
   const live = liveRows(snapshot);
   const watch = new Set(snapshot.watchlist);
   const early = board.filter((r) => !watch.has(r.slug)).length;
+  const peerSlugs = new Set(cleanPeers(snapshot).peers.map((p) => p.slug));
+  const coverage = coverageLedger(snapshot, new Map(board.map((r) => [r.slug, r.rank])), peerSlugs);
+  const traded = coverage.filter((e) => e.status === 'traded').length;
   const radar: RadarData = {
     as_of: snapshot.as_of,
     source: snapshot.source,
@@ -1213,6 +1274,8 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     live_size: live.length,
     rows: board.map((r) => radarRow(r, watch.has(r.slug))),
     live,
+    coverage,
+    coverage_counts: { total: coverage.length, ranked: board.length, traded, aside: coverage.length - board.length - traded },
   };
   return { board, radar };
 }
