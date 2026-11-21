@@ -1,6 +1,5 @@
-/* Token Radar's night theme: a dark scope a reader scans the way a radar operator scans a
-   screen. Phosphor mint is the signal colour, amber marks the watchlist floor, coral is the
-   only warning. One spacing scale, two radii, tabular mono for every number. */
+/* Token Radar's night theme: phosphor mint is the signal colour, amber marks the watchlist
+   floor, coral is the only warning. Tabular mono for every number. */
 :root {
   --canvas: #0a0f0d;
   --surface: #101713;
@@ -244,6 +243,12 @@ tr[data-watch="1"] td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
 .ecard:hover { border-color: var(--accent); background: var(--raised); }
 .erank { font-family: var(--font-num); font-size: 12px; color: var(--faint); }
 .ecard-value { font-size: 19px; font-weight: 700; }
+
+.timeline { display: flex; gap: var(--step-4); }
+.tl-node { flex: 1; border-top: 2px solid var(--border); padding-top: var(--step-3); position: relative; }
+.tl-node::before { content: ""; position: absolute; top: -6px; left: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.tl-node b { display: block; margin-bottom: 2px; }
+.tl-node .num { color: var(--gold); }
 
 @media (max-width: 900px) {
   .picks { grid-template-columns: 1fr; }

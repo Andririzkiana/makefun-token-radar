@@ -1,17 +1,13 @@
-// Token Radar's dashboard. It reads window.RADAR (written beside dashboard/ by main.ts) and
-// renders the top picks, the ranked board, the early radar and a per-protocol detail drawer
-// with the model's own inputs and the protocol's farm plan. No network: every byte it shows
-// is in data.js.
+// Token Radar's dashboard: reads window.RADAR (data.js, written by main.ts) — no network.
 (function () {
   'use strict';
 
   var DATA = window.RADAR;
   if (!DATA) return;
   var app = document.getElementById('board');
-  var state = { q: '', category: 'all', verdict: 'all', watch: false, tab: 'pre-token', sort: 'implied', dir: -1, selected: null };
+  var state = { q: '', category: 'all', verdict: 'all', cov: 'all', watch: false, tab: 'pre-token', sort: 'implied', dir: -1, selected: null };
   var byRank = DATA.rows.slice().sort(function (a, b) { return a.rank - b.rank; });
-  // The implied-value bars are log-scaled against the whole board, so a bar means the same
-  // thing however the table is sorted or filtered.
+  // Implied-value bars are log-scaled against the whole board.
   var logLo = Math.log(Math.min.apply(null, DATA.rows.map(function (r) { return r.implied_value_usd; })));
   var logHi = Math.log(Math.max.apply(null, DATA.rows.map(function (r) { return r.implied_value_usd; })));
   function barWidth(v) { return Math.round(4 + 96 * (Math.log(v) - logLo) / Math.max(1e-9, logHi - logLo)); }
@@ -33,9 +29,7 @@
     if (days >= 365) return (days / 365).toFixed(1) + 'y';
     return Math.max(0, Math.round(days)) + 'd';
   }
-  // The fitted curve in one function: the page re-prices a row from the fit components data.js
-  // carries and checks the number board.json carries, so the page's code and the board's data
-  // are visibly the same arithmetic.
+  // The page re-prices a row from the fit components data.js carries: the same arithmetic as board.json.
   function impliedOf(row) {
     if (!row.tvl_usd || row.tvl_usd <= 0) return 1;
     return Math.max(1, Math.round(Math.exp(row.fit_base_log + row.fit_b * Math.log(row.tvl_usd) + row.fit_growth + row.fit_age)));
@@ -62,9 +56,7 @@
     return node;
   }
 
-  // The farm plan is the same derivation main.ts writes to board.json: category, chains,
-  // seven-day momentum and age decide the actions, and the costed plan data.js carries with
-  // each row decides every dollar. No name is special-cased.
+  // The farm plan is the same derivation main.ts writes to board.json. No name is special-cased.
   function slugHash(slug) {
     var h = 0;
     for (var i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0;
@@ -171,6 +163,8 @@
     if (params.get('p')) state.selected = params.get('p');
     if (params.get('category')) state.category = params.get('category');
     if (params.get('verdict')) state.verdict = params.get('verdict');
+    if (params.get('tab')) state.tab = params.get('tab');
+    if (params.get('cov')) state.cov = params.get('cov');
     if (params.get('watch')) state.watch = true;
   }
   function writeHash() {
@@ -178,6 +172,8 @@
     if (state.q) params.set('q', state.q);
     if (state.category !== 'all') params.set('category', state.category);
     if (state.verdict !== 'all') params.set('verdict', state.verdict);
+    if (state.tab !== 'pre-token') params.set('tab', state.tab);
+    if (state.cov !== 'all') params.set('cov', state.cov);
     if (state.watch) params.set('watch', '1');
     if (state.selected) params.set('p', state.selected);
     var next = params.toString();
@@ -250,7 +246,7 @@
         el('div', { class: 'fact' }, el('span', { text: 'Watchlist covered' }), el('b', { text: DATA.watchlist_size + ' / ' + DATA.watchlist_size })),
         el('div', { class: 'fact' }, el('span', { text: 'Pre-token rows scored' }), el('b', { text: String(DATA.board_size) })),
         el('div', { class: 'fact' }, el('span', { text: 'Early rows below the floor' }), el('b', { text: String(DATA.early_size) })),
-        el('div', { class: 'fact' }, el('span', { text: 'Live-token protocols set aside' }), el('b', { text: String(DATA.live_size) }))
+        el('div', { class: 'fact' }, el('span', { text: 'Protocols accounted for' }), el('b', { text: DATA.coverage_counts.total + ' of ' + DATA.coverage_counts.total }))
       )
     );
   }
@@ -272,16 +268,17 @@
       })
     );
     verdictSel.addEventListener('change', function () { state.verdict = verdictSel.value; writeHash(); render(); });
-    var pre = el('button', { type: 'button', 'aria-pressed': state.tab === 'pre-token' ? 'true' : 'false', text: 'Pre-token', onclick: function () { state.tab = 'pre-token'; render(); } });
-    var live = el('button', { type: 'button', 'aria-pressed': state.tab === 'live' ? 'true' : 'false', text: 'Live token', onclick: function () { state.tab = 'live'; render(); } });
+    var pre = el('button', { type: 'button', 'aria-pressed': state.tab === 'pre-token' ? 'true' : 'false', text: 'Pre-token', onclick: function () { state.tab = 'pre-token'; writeHash(); render(); } });
+    var live = el('button', { type: 'button', 'aria-pressed': state.tab === 'live' ? 'true' : 'false', text: 'Live token', onclick: function () { state.tab = 'live'; writeHash(); render(); } });
+    var cov = el('button', { type: 'button', 'aria-pressed': state.tab === 'coverage' ? 'true' : 'false', text: 'Coverage', onclick: function () { state.tab = 'coverage'; writeHash(); render(); } });
     var watchBtn = el('button', { type: 'button', class: 'watch-toggle', 'aria-pressed': state.watch ? 'true' : 'false', text: 'Watchlist only', onclick: function () { state.watch = !state.watch; writeHash(); render(); } });
     return el('div', { class: 'controls' },
       el('div', { class: 'field' }, el('label', { for: 'q', text: 'Search' }), search),
       el('div', { class: 'field' }, el('label', { for: 'category', text: 'Category' }), select),
       el('div', { class: 'field' }, el('label', { for: 'verdict', text: 'Verdict' }), verdictSel),
-      el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Token status' }), el('div', { class: 'tabs' }, pre, live)),
+      el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Token status' }), el('div', { class: 'tabs' }, pre, live, cov)),
       el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Floor' }), watchBtn),
-      el('span', { class: 'count', text: state.tab === 'pre-token' ? rows().length + ' rows shown' : DATA.live.length + ' live-token protocols' })
+      el('span', { class: 'count', text: state.tab === 'pre-token' ? rows().length + ' rows shown' : state.tab === 'coverage' ? DATA.coverage.length + ' protocols accounted' : DATA.live.length + ' live-token protocols' })
     );
   }
 
@@ -407,6 +404,7 @@
       el('span', null, el('b', { text: DATA.model_version }), ' fitted on ' + f.peers_used + ' clean peers (b = ' + f.size_exponent.toFixed(3) + ', k = ' + f.shrink_k + ')'),
       el('span', { text: 'Leave-one-out log-RMSE ' + f.validation.loo.log_rmse.toFixed(3) + ' · ' + Math.round(f.validation.loo.within_2x * 100) + '% within 2x' }),
       el('span', { text: 'Rank ranges from ' + DATA.model.refits + ' refits' }),
+      el('span', { text: DATA.coverage_counts.total + ' protocols counted: ' + DATA.coverage_counts.ranked + ' ranked · ' + DATA.coverage_counts.traded + ' traded · ' + DATA.coverage_counts.aside + ' set aside — every one with a reason (Coverage)' }),
       el('span', null, 'Verdicts: ', el('b', { class: 'verdict-farm-t', text: counts.farm + ' farm' }), ' · ', el('b', { class: 'verdict-thin-t', text: counts.thin + ' thin' }), ' · ', el('b', { text: counts.skip + ' skip' }))
     );
   }
@@ -467,8 +465,7 @@
       el('p', { class: 'sub', text: 'TVL ' + fmtUsd(row.tvl_usd) + ' · ' + (row.change_7d === null ? 'no seven-day change reported' : fmtPct(row.change_7d) + ' in seven days') + ' · ' + fmtAge(row.age_days) + ' with no token on record' }),
       el('p', { class: 'sub', text: 'Across ' + DATA.model.refits + ' refits this row ranks ' + row.rank_lo + '–' + row.rank_hi + ', with implied value ' + fmtUsd(row.implied_lo) + '–' + fmtUsd(row.implied_hi) + '.' })
     ));
-    // Each multiplier drawn against the full range the model allows it, from the model's own
-    // constants, so a reader sees not just the number but how much of the dial it turns.
+    // Each multiplier drawn against the full range the model allows it.
     function brow(label, shown, frac, note) {
       var pct = Math.max(2, Math.min(100, Math.round(frac * 100)));
       return el('div', { class: 'brow' },
@@ -494,6 +491,24 @@
         crow('Net', fmtMoney(plan.net_usd), ''),
         crow('Break-even launch', plan.break_even_usd === null ? 'never' : fmtUsd(plan.break_even_usd), 'the launch value at which this plan nets zero'),
         el('div', { class: 'crow' }, el('span', { text: 'Verdict' }), verdictChip(plan.verdict), el('span', { class: 'sub', text: 'farm at twice cost, thin at cost, skip below' }))
+      )
+    ));
+    var beDays = plan.break_even_days;
+    dialog.appendChild(el('section', { class: 'detail-section' },
+      el('h3', { text: 'The plan on a timeline' }),
+      el('div', { class: 'timeline' },
+        el('div', { class: 'tl-node' },
+          el('b', { text: 'Enter' }),
+          el('span', { class: 'num', text: plan.start_date }),
+          el('p', { class: 'sub', text: 'Week 1: put down the ' + fmtMoney(plan.capital_usd) + ' deposit and work the ' + plan.actions + ' actions.' })),
+        el('div', { class: 'tl-node' },
+          el('b', { text: beDays === null ? 'Break-even: never' : 'Break-even: day ' + beDays }),
+          el('span', { class: 'num', text: beDays === null ? 'no date' : plan.break_even_date }),
+          el('p', { class: 'sub', text: beDays === null ? 'No time farmed covers the ' + fmtMoney(plan.plan_cost_usd) + ' all-in cost at this implied value.' : beDays > plan.hold_days ? 'Past the exit: the hold ends before the ' + fmtMoney(plan.plan_cost_usd) + ' cost is covered.' : 'Farming this long covers the ' + fmtMoney(plan.plan_cost_usd) + ' all-in cost.' })),
+        el('div', { class: 'tl-node' },
+          el('b', { text: 'Exit' }),
+          el('span', { class: 'num', text: plan.end_date }),
+          el('p', { class: 'sub', text: 'Day ' + plan.hold_days + ': expected value ' + fmtMoney(plan.expected_value_usd) + ', net ' + fmtMoney(plan.net_usd) + '.' }))
       )
     ));
     var curveAtTvl = Math.exp(DATA.fit.intercept + row.fit_b * Math.log(Math.max(1, row.tvl_usd)));
@@ -570,6 +585,48 @@
     );
   }
 
+  function coverageSection() {
+    var c = DATA.coverage_counts;
+    var list = DATA.coverage.filter(function (e) {
+      if (state.cov === 'ranked' && e.status !== 'ranked') return false;
+      if (state.cov === 'traded' && e.status !== 'traded') return false;
+      if (state.cov === 'aside' && e.status !== 'aside') return false;
+      if (state.q) { var q = state.q.toLowerCase(); if ((e.name + ' ' + (e.category || '')).toLowerCase().indexOf(q) === -1) return false; }
+      return true;
+    });
+    function opt(v, label) { return el('option', { value: v, text: label, selected: state.cov === v ? 'selected' : null }); }
+    var sel = el('select', { id: 'cov', 'aria-label': 'Filter the coverage ledger' },
+      opt('all', 'All ' + c.total + ' protocols'), opt('ranked', 'Ranked (' + c.ranked + ')'),
+      opt('traded', 'Token trades (' + c.traded + ')'), opt('aside', 'Set aside (' + c.aside + ')'));
+    sel.addEventListener('change', function () { state.cov = sel.value; writeHash(); render(); });
+    var tbody = el('tbody');
+    list.forEach(function (e) {
+      var status = e.status === 'ranked'
+        ? el('span', { class: 'tag tag-watch', text: 'ranked #' + e.rank })
+        : el('span', { class: 'status', text: e.status === 'traded' ? 'trades' : 'set aside' });
+      var attrs = e.status === 'ranked' ? { tabindex: '0', onclick: function () { openDetail(e.slug); }, onkeydown: function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openDetail(e.slug); } } } : null;
+      tbody.appendChild(el('tr', attrs,
+        el('td', null, el('div', { class: 'name' }, el('b', { text: e.name }), el('span', { class: 'sub', text: e.category || 'Other' }))),
+        el('td', { class: 'num', text: fmtUsd(e.tvl_usd) }),
+        el('td', null, status),
+        el('td', null, el('span', { class: 'sub', text: e.reason }))
+      ));
+    });
+    return el('section', { class: 'panel', 'aria-label': 'Coverage ledger' },
+      el('div', { class: 'section-head' },
+        el('h2', { text: 'Coverage: every protocol in the snapshot, accounted for' }),
+        el('p', { class: 'sub', text: 'The snapshot holds ' + c.total + ' protocols and the board ranks ' + c.ranked + ' of them. The other ' + (c.traded + c.aside) + ' are not missing: ' + c.traded + ' already trade — the fitted curve learns from ' + DATA.fit.peers_used + ' of them, so they are its anchors, not its candidates — and ' + c.aside + ' record no token of their own. Every protocol carries the reason it landed where it did; select a ranked row for its model and plan.' }),
+        el('div', { class: 'field' }, el('label', { for: 'cov', text: 'Show' }), sel)
+      ),
+      el('div', { class: 'table-wrap' },
+        el('table', null,
+          el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Protocol' }), el('th', { scope: 'col', text: 'TVL' }), el('th', { scope: 'col', text: 'Status' }), el('th', { scope: 'col', text: 'Why' }))),
+          tbody
+        )
+      )
+    );
+  }
+
   function foot() {
     return el('footer', { class: 'foot' },
       el('span', { text: 'Source: ' + DATA.source }),
@@ -589,8 +646,10 @@
       shell.appendChild(boardTable());
       if (defaultView()) shell.appendChild(earlySection());
       shell.appendChild(modelPanel());
-    } else {
+    } else if (state.tab === 'live') {
       shell.appendChild(liveTable());
+    } else {
+      shell.appendChild(coverageSection());
     }
     shell.appendChild(foot());
     app.appendChild(shell);
