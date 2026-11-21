@@ -104,5 +104,6 @@ process.stdout.write(
     `token radar: ${radar.model_version} fitted on ${fit.peers_used} clean peers (${fit.broken_prints} broken prints excluded of ${fit.peers_seen} recording a cap): size exponent ${fit.size_exponent}, shrink k ${fit.shrink_k}, growth weight ${fit.growth_weight}, age weight ${fit.age_weight}\n` +
     `token radar: validation leave-one-out log-RMSE ${fit.validation.loo.log_rmse} (median APE ${Math.round(fit.validation.loo.median_ape * 100)}%, within-2x ${Math.round(fit.validation.loo.within_2x * 100)}%, n ${fit.validation.loo.n}); walk-forward log-RMSE ${fit.validation.wf.log_rmse} (median APE ${Math.round(fit.validation.wf.median_ape * 100)}%, n ${fit.validation.wf.n})\n` +
     `token radar: plan verdicts ${verdicts.farm} farm, ${verdicts.thin} thin, ${verdicts.skip} skip\n` +
+    `token radar: coverage — ${radar.coverage_counts.total} protocols counted: ${radar.coverage_counts.ranked} ranked, ${radar.coverage_counts.traded} traded set aside, ${radar.coverage_counts.aside} products set aside, every one with its reason\n` +
     `token radar: wrote ${join(out, 'board.json')}, ${join(out, 'data.js')}, ${join(out, 'dashboard')} (${dashboardFiles.length} files), ${join(out, 'screenshots')} (${shots.length} images) and ${join(out, 'dossier.json')}\n`,
 );

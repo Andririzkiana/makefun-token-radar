@@ -14,7 +14,11 @@ scores every protocol with a transparent implied-value model, and
 publishes a fully ranked board: 198 protocols, sorted by implied
 value, with the complete 40-protocol watchlist covered.
 
-## The radar-4 model
+## The radar-5 model
+
+radar-5 keeps radar-4's fitted curve and adds the accounting around it: a coverage
+ledger that counts every protocol in the snapshot, and a dated break-even marker on
+every farm plan's timeline.
 
 radar-4 replaces radar-3's hand-set category multiple with a curve
 fitted on the launches the market has already priced, graded out of
@@ -61,7 +65,22 @@ sample before it is believed:
   allocation, with the farming capital competing for it stated at
   **0.5% of TVL** (FARM_TVL_SHARE) — the whole TVL is not farming.
   Verdicts: farm at value ≥ 2 × cost, thin at ≥ cost, skip below —
-  on this snapshot: **22 farm, 37 thin, 139 skip**.
+  on this snapshot: **22 farm, 37 thin, 139 skip**. Each plan also
+  carries a dated timeline — enter on the snapshot date, break even on
+  the day the farmed value covers the all-in cost (printed even when
+  it lands past the exit), exit at the end of the hold.
+
+## Coverage: all 758 protocols, accounted for
+
+The snapshot holds 758 protocols and the board ranks 198 of them. The
+other 560 are counted, not dropped: 416 already trade — 128 of them
+are the clean peers the curve is fitted on, so they are its anchors,
+not its candidates — and 144 record no token of their own because they
+are products of tokens that trade (bridges, staking wrappers, exchange
+products, later versions). The dashboard's Coverage view lists every
+protocol with its disposition and the reason, and the run's data
+carries the same ledger, so the count checks line by line:
+198 ranked + 416 traded + 144 set aside = 758.
 
 ## What it produces
 
@@ -70,7 +89,8 @@ sample before it is believed:
   steps per protocol).
 - `dashboard/` — a self-contained static dashboard (board view with
   the fitted-model panel and verdict filter, per-protocol detail
-  view with the plan costing, and a verdict-filtered view).
+  view with the plan costing and its dated timeline, and a coverage
+  view accounting for all 758 protocols).
 - `screenshots/` — 1440×900 captures of the three dashboard views.
 - `dossier.json` — the full grading dossier, byte-identical to the
   kit's `buildDossier` output for the same run.
